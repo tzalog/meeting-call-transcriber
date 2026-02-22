@@ -464,6 +464,7 @@ def transcribe_worker(
     backend: str,
     language: str | None,
     local_model_name: str,
+    device: str,
     compute_type: str,
     beam_size: int,
     carry_context: bool,
@@ -487,8 +488,8 @@ def transcribe_worker(
     elif backend == "local":
         if WhisperModel is None:
             raise RuntimeError("Missing faster-whisper. Install it or use --backend openai.")
-        print(f"Loading local model: {local_model_name} ({compute_type})...")
-        local_model = WhisperModel(local_model_name, device="cpu", compute_type=compute_type)
+        print(f"Loading local model: {local_model_name} ({device}, {compute_type})...")
+        local_model = WhisperModel(local_model_name, device=device, compute_type=compute_type)
     else:
         raise RuntimeError(f"Unknown backend: {backend}")
 
@@ -632,6 +633,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Kod jezyka, np. pl, en. Puste = auto-detekcja.",
     )
     parser.add_argument(
+        "--device",
+        choices=["cpu", "cuda"],
+        default="cpu",
+        help="Device for local faster-whisper backend (cpu or cuda).",
+    )
+    parser.add_argument(
         "--compute-type",
         type=str,
         default="int8",
@@ -738,6 +745,7 @@ def main() -> int:
         print(f"Model OpenAI: {args.openai_model}")
     else:
         print(f"Local model: {args.model}")
+        print(f"Local device: {args.device}")
     print(f"Segments: {args.segment_seconds:.1f}s, overlap: {args.overlap_seconds:.1f}s")
     print(f"Output file: {output_file}")
     print("Press Ctrl+C to stop.\n")
@@ -776,6 +784,7 @@ def main() -> int:
             backend=backend,
             language=language,
             local_model_name=args.model,
+            device=args.device,
             compute_type=args.compute_type,
             beam_size=args.beam_size,
             carry_context=not args.no_carry_context,
