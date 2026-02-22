@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+# Generated transcripts
+lecture-*.txt
+wtyklad-*.txt
+
+# Local environment files
+.env
+.venv/
+venv/
