@@ -46,7 +46,7 @@ Choose the output device that actually plays the lecture audio (prefer `Stereo`,
 ## Example Run (OpenAI API)
 
 ```powershell
-python live_transcribe_system_audio.py --backend openai --speaker-name "WH-CH510" --language pl --segment-seconds 45 --overlap-seconds 5
+python live_transcribe_system_audio.py --backend openai --speaker-name "Realtek" --language pl --segment-seconds 45 --overlap-seconds 5
 
 ```
 
@@ -104,7 +104,7 @@ The script includes safeguards (silence skipping and deduplication), but you can
 Example:
 
 ```powershell
-python live_transcribe_system_audio.py --backend openai --speaker-name "WH-CH510" --language pl --segment-seconds 45 --overlap-seconds 5
+python live_transcribe_system_audio.py --backend openai --speaker-name "Realtek" --language pl --segment-seconds 45 --overlap-seconds 5
 ```
 
 ### 3. The program does not capture Teams audio
