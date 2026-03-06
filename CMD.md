@@ -1,0 +1,1 @@
+python live_transcribe_system_audio.py --backend local --speaker-name "Realtek" --model large-v3 --device cuda --compute-type float16 --language pl --chunk-seconds 45 --overlap-seconds 5

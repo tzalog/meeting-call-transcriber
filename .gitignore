@@ -9,3 +9,4 @@ wtyklad-*.txt
 .env
 .venv/
 venv/
+.venv_appdata
