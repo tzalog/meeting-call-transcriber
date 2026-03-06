@@ -3,6 +3,7 @@ import io
 import os
 import queue
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -194,6 +195,58 @@ def segmenter_worker(
 
 def get_openai_api_key() -> str | None:
     return os.getenv("OPENAI_API_KEY") or os.getenv("openai_api_key")
+
+
+def detect_cuda_gpu_info() -> list[str]:
+    # Prefer PyTorch when available because it exposes device names directly.
+    try:
+        import torch  # type: ignore[import-not-found]
+
+        if torch.cuda.is_available():
+            count = int(torch.cuda.device_count())
+            if count > 0:
+                return [f"GPU {idx}: {torch.cuda.get_device_name(idx)}" for idx in range(count)]
+    except Exception:
+        pass
+
+    # Fallback to nvidia-smi if available in PATH.
+    try:
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=index,name,driver_version,memory.total",
+                "--format=csv,noheader,nounits",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if lines:
+            formatted: list[str] = []
+            for line in lines:
+                parts = [part.strip() for part in line.split(",")]
+                if len(parts) >= 4:
+                    formatted.append(
+                        f"GPU {parts[0]}: {parts[1]} | driver {parts[2]} | VRAM {parts[3]} MB"
+                    )
+                else:
+                    formatted.append(line)
+            return formatted
+    except Exception:
+        pass
+
+    # Last fallback: detect only whether CTranslate2 can see CUDA devices.
+    try:
+        import ctranslate2  # type: ignore[import-not-found]
+
+        count = int(ctranslate2.get_cuda_device_count())
+        if count > 0:
+            return [f"Detected {count} CUDA device(s) (details unavailable in this environment)."]
+    except Exception:
+        pass
+
+    return []
 
 
 def detect_backend(backend_arg: str) -> str:
@@ -478,6 +531,7 @@ def transcribe_worker(
 ) -> None:
     client = None
     local_model = None
+    gpu_info_for_header: list[str] = []
     prompt_history: "deque[str]" = deque(maxlen=6)
     prev_tail_text = ""
     prev_tail_words: "deque[str]" = deque(maxlen=160)
@@ -488,6 +542,17 @@ def transcribe_worker(
     elif backend == "local":
         if WhisperModel is None:
             raise RuntimeError("Missing faster-whisper. Install it or use --backend openai.")
+        if device == "cuda":
+            print("CUDA device selected. Detecting available GPU(s)...")
+            gpu_info_for_header = detect_cuda_gpu_info()
+            if gpu_info_for_header:
+                for line in gpu_info_for_header:
+                    print(f"[GPU] {line}")
+            else:
+                print(
+                    "[WARN] CUDA was selected but no GPU details were detected "
+                    "(missing drivers/tools or no CUDA GPU visible)."
+                )
         print(f"Loading local model: {local_model_name} ({device}, {compute_type})...")
         local_model = WhisperModel(local_model_name, device=device, compute_type=compute_type)
     else:
@@ -500,6 +565,12 @@ def transcribe_worker(
             f.write(f"# Model: {openai_model}\n")
         else:
             f.write(f"# Model: {local_model_name}\n")
+            if device == "cuda":
+                if gpu_info_for_header:
+                    for line in gpu_info_for_header:
+                        f.write(f"# GPU: {line}\n")
+                else:
+                    f.write("# GPU: CUDA selected, but GPU details were not detected.\n")
         f.flush()
 
         while True:
